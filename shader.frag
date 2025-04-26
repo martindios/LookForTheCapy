@@ -26,11 +26,6 @@ void main() {
     if (alpha < 0.1)
         discard;
 
-    // Si la textura no aporta color (negro puro), lo reemplazamos
-    if (texColor == vec3(0.0, 0.0, 0.0)) {
-        texColor = vec3(1.0, 1.0, 1.0);
-    }
-
     vec3 combinedColor = texColor * ourColor;
 
     float ambiente = 0.5;
@@ -57,11 +52,11 @@ void main() {
         vec3 specular   = specularStrength * spec * lightColor;
 
         vec3 result = (ambient + diffuse * attenuation + specular * attenuation)
-                      * combinedColor * (1 + attenuation);
+                      * ourColor * (1 + attenuation);
 
         FragColor = vec4(result, alpha);
     } else {
-        vec3 result = ambient * combinedColor;
+        vec3 result = ambient * ourColor;
         FragColor = vec4(result, alpha);
     }
 }

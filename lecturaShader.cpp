@@ -90,9 +90,9 @@ GLuint setShaders(const char *nVertx, const char *nFrag) {
 	
 	//Leo el codigo del ficheo y hay error devuelve un NULL
 	ficherovs = textFileRead(nVertx);
-		if (ficherovs == NULL) return NULL;
+		if (ficherovs == NULL) return 0;
 	ficherofs = textFileRead(nFrag);
-		if (ficherofs == NULL) return NULL;
+		if (ficherofs == NULL) return 0;
 
 	//Lo igual al puntero para cargarlos
 	codigovs = ficherovs;
