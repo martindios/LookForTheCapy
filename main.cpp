@@ -1,4 +1,4 @@
-// g++ main.cpp lecturaShader.cpp -o main -lglad -lglfw -lm -lGL -lGLU
+// g++ main.cpp lecturaShader.cpp glad.c -o main -lglfw -lm -lGL -lGLU
 
 #include <stdio.h>
 #include <stdlib.h>
