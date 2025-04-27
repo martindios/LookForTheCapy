@@ -10,11 +10,18 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <vector>
 
-#include "estructuras.h"
+#define TINYGLTF_IMPLEMENTATION
+#include "tiny_gltf.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+#include "estructuras.h"
 
 // Conversión de grados a radianes
 #define gradosToRadianes 3.14159/180.0
@@ -36,6 +43,8 @@ typedef struct {
 objeto suelo        = {{0.0, 0.0, 0.0}, 0.0, 0.0, {100.0, 0.0, 100.0}, 0, {0.541176f, 0.537254f, 0.392156f}, 6, 0, 0};
 objeto cubo         = {{0.0, 1.0, 0.0}, 0.0, 0.0, {1.0, 1.0, 1.0}, 0, {1.0f, 0.5f, 1.0f}, 36, 0, 0};
 objeto esfera       = {{0.0, 10.0, 0.0}, 0.0, 0.0, {1.0, 1.0, 1.0}, 0, {0.5f, 1.0f, 1.0f}, 1080, 0, 0};
+
+std::vector<GLuint> capyTextures;
 
 // Prototipos de funciones
 extern GLuint setShaders(const char *nVertx, const char *nFrag);
@@ -66,6 +75,131 @@ unsigned int vKeyPressed = 0;
 unsigned int vaoEsfera;
 unsigned int vaoPlano;
 unsigned int vaoCubo;
+
+// globals para el modelo
+tinygltf::Model model;
+std::vector<GLuint> capyVBOs, capyVAOs;
+
+void loadCapybara(const char* path) {
+    tinygltf::TinyGLTF loader;
+    std::string err, warn;
+    bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, path);            // carga .glb :contentReference[oaicite:1]{index=1}
+    if (!warn.empty())  printf("Warn: %s\n", warn.c_str());
+    if (!err.empty())   printf("Err:  %s\n", err.c_str());
+    if (!ret) {
+        printf("Failed to load glb: %s\n", path);
+        exit(-1);
+    }
+
+    // 1) Generar VBOs a partir de bufferViews
+    capyVBOs.resize(model.bufferViews.size());
+    glGenBuffers((GLsizei)capyVBOs.size(), capyVBOs.data());
+    for (size_t i = 0; i < model.bufferViews.size(); i++) {
+        auto &bv = model.bufferViews[i];
+        auto &buf = model.buffers[bv.buffer];
+        glBindBuffer(bv.target, capyVBOs[i]);
+        glBufferData(bv.target, (GLsizeiptr)bv.byteLength,
+                     buf.data.data() + bv.byteOffset,
+                     GL_STATIC_DRAW);
+    }
+
+    // 2) Generar VAO por cada mesh
+    capyVAOs.resize(model.meshes.size());
+    glGenVertexArrays((GLsizei)capyVAOs.size(), capyVAOs.data());
+    for (size_t m = 0; m < model.meshes.size(); m++) {
+        glBindVertexArray(capyVAOs[m]);
+        auto &prim = model.meshes[m].primitives[0];
+
+        // Índices
+        auto &iAcc = model.accessors[prim.indices];
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+                     capyVBOs[iAcc.bufferView]);
+
+        // Atributos POSITION, NORMAL, TEXCOORD_0
+        for (auto &attr : prim.attributes) {
+            auto &aAcc = model.accessors[attr.second];
+            glBindBuffer(GL_ARRAY_BUFFER,
+                         capyVBOs[aAcc.bufferView]);
+            int loc =
+                (attr.first == "POSITION"         ? 0 :
+                 attr.first == "NORMAL"           ? 1 :
+                 attr.first == "TEXCOORD_0"       ? 2 : -1);                          // UVs en location=2 
+            if (loc < 0) continue;
+            glVertexAttribPointer(loc,
+                                  aAcc.type,
+                                  aAcc.componentType,
+                                  aAcc.normalized ? GL_TRUE : GL_FALSE,
+                                  model.bufferViews[aAcc.bufferView].byteStride,
+                                  (void*)(intptr_t)aAcc.byteOffset);
+            glEnableVertexAttribArray(loc);
+        }
+    }
+    glBindVertexArray(0);
+
+    // 3) Generar Texturas GL a partir de model.images
+    capyTextures.resize(model.textures.size());
+    glGenTextures((GLsizei)capyTextures.size(), capyTextures.data());
+    for (size_t i = 0; i < model.textures.size(); ++i) {
+        auto &tex  = model.textures[i];
+        if (tex.source < 0) continue;
+        auto &img  = model.images[tex.source];
+        auto &samp = (tex.sampler >= 0 ? model.samplers[tex.sampler]
+                                      : model.samplers[0]);
+
+        glBindTexture(GL_TEXTURE_2D, capyTextures[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, samp.wrapS);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, samp.wrapT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, samp.minFilter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, samp.magFilter);
+
+        GLenum format = (img.component == 4 ? GL_RGBA : GL_RGB);                   // detecta RGB/RGBA 
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, format,
+                     img.width, img.height, 0,
+                     format, GL_UNSIGNED_BYTE,
+                     img.image.data());                                             // sube datos con stb_image 
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+
+
+void drawCapybara(GLuint program) {
+    static float ang = 0.0f;
+    ang += 0.5f;
+
+    // Movimiento oscilante en X
+    glm::mat4 modelMat = glm::translate(glm::mat4(1.0f),
+        glm::vec3(sin(ang * 3.14159f/180.0f) * 5.0f, 0.0f, 0.0f));
+    glUniformMatrix4fv(glGetUniformLocation(program, "model"),
+                       1, GL_FALSE, glm::value_ptr(modelMat));
+
+    for (size_t m = 0; m < capyVAOs.size(); ++m) {
+        glBindVertexArray(capyVAOs[m]);
+        auto &prim = model.meshes[m].primitives[0];
+
+        // Si el primitive tiene material, enlazar su baseColorTexture
+        if (prim.material >= 0) {
+            auto &mat = model.materials[prim.material];
+            int bi = mat.pbrMetallicRoughness.baseColorTexture.index;            // glTF PBR baseColorTexture 
+            if (bi >= 0 && bi < (int)capyTextures.size()) {
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, capyTextures[bi]);
+                glUniform1i(glGetUniformLocation(program, "texture1"), 0); // coincide con sampler2D 
+            }
+        }
+
+        auto &iAcc = model.accessors[prim.indices];
+        glDrawElements(GL_TRIANGLES,
+                       (GLsizei)iAcc.count,
+                       iAcc.componentType,
+                       0);                                                           // dibuja con textura activa 
+    }
+
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
 
 int cargaTextura(const char* nombre) {
     GLuint textura;
@@ -201,6 +335,7 @@ void openGlInit() {
     glCullFace(GL_BACK);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 }
 
 // Inicializa los objetos y configura sus VAO correspondientes
@@ -232,7 +367,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     scrHeight = height;
 }
 
-int main() {
+int main(int argc, char** argv) {
     // Inicialización de GLFW y configuración de la versión de OpenGL
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -266,6 +401,8 @@ int main() {
     
     openGlInit();
     initObjects();
+
+    loadCapybara(argv[1]);
     
     // Bucle principal de renderizado
     while (!glfwWindowShouldClose(window)) {
@@ -279,6 +416,7 @@ int main() {
         dibujarObjeto(suelo);
         dibujarObjeto(cubo);
         dibujarObjeto(esfera);
+        drawCapybara(shaderProgram);
         
         glfwSwapBuffers(window);
         glfwPollEvents();

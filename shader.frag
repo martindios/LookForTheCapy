@@ -17,7 +17,7 @@ uniform vec3 luzDir;
 uniform bool noche;
 
 void main() {
-    // Muestreamos RGBA en lugar de RGB
+    // Muestreamos RGBA
     vec4 texSample = texture(texture1, TexCoord);
     vec3 texColor = texSample.rgb;
     float alpha    = texSample.a;
@@ -26,10 +26,14 @@ void main() {
     if (alpha < 0.1)
         discard;
 
-    vec3 combinedColor = texColor * ourColor;
+    vec3 color = texColor;
+    if (texColor == vec3(0.0, 0.0, 0.0)) {
+        color = ourColor;
+    }
 
     float ambiente = 0.5;
-    vec3 ambient = ambiente * lightColor;
+
+    vec3 ambient = ambiente * lightColor * color;
 
     vec3 fd = normalize(FragPos - lightPos);
 
