@@ -60,7 +60,7 @@ void main() {
 
         FragColor = vec4(result, alpha);
     } else {
-        vec3 result = ambient * ourColor;
+        vec3 result = ambient;
         FragColor = vec4(result, alpha);
     }
 }
