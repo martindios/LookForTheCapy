@@ -375,7 +375,7 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
     // Creación de la ventana
-    GLFWwindow* window = glfwCreateWindow(scrWidth, scrHeight, "Grua", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(scrWidth, scrHeight, "Capybara", NULL, NULL);
     if(window == NULL){
         std::cout << "Error al crear la ventana" << std::endl;
         glfwTerminate();
@@ -402,7 +402,7 @@ int main(int argc, char** argv) {
     openGlInit();
     initObjects();
 
-    loadCapybara(argv[1]);
+    loadCapybara("capybara_low_poly.glb"); // Carga el modelo de la capibara
     
     // Bucle principal de renderizado
     while (!glfwWindowShouldClose(window)) {
