@@ -324,7 +324,15 @@ void processInput(GLFWwindow *window) {
 
 // Callback de redimensionado
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    // Ajusta el viewport a las nuevas dimensiones de la ventana
     glViewport(0, 0, width, height);
+
+    // Actualiza las dimensiones de la ventana
+    if(width == 0) width = 1;
+    if(height == 0) height = 1;
+
+    scrWidth = width;
+    scrHeight = height;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
