@@ -140,9 +140,8 @@ void drawCapybara() {
     ang += 0.5f;
 
     // Movimiento oscilante en X
-    glm::mat4 modelMat = glm::translate(glm::mat4(1.0f),
-        glm::vec3(sin(ang * 3.14159f/180.0f) * 5.0f, 0.0f, 0.0f));
-    modelMat = glm::scale(modelMat, glm::vec3(100.0f, 100.0f, 100.0f)); // Escala 10x
+    glm::mat4 modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(75.0, 10.0, 50.0)); // Trasladar
+    modelMat = glm::scale(modelMat, glm::vec3(1.0f, 1.0f, 1.0f)); // Escala 10x
     glUniformMatrix4fv(glGetUniformLocation(capybaraShader, "model"),
                        1, GL_FALSE, glm::value_ptr(modelMat));
 
@@ -380,6 +379,7 @@ int main(int argc, char** argv) {
     // Configuración de OpenGL
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
+    glEnable(GL_BLEND);
 
     // Bucle principal de renderizado
     while (!glfwWindowShouldClose(window)) {

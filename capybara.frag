@@ -9,7 +9,7 @@ out vec4 FragColor;
 uniform sampler2D texture1;
 
 void main() {
-    // Muestreamos RGBA
+    // Muestreamos RGBA en lugar de RGB
     vec4 texSample = texture(texture1, TexCoord);
     vec3 texColor = texSample.rgb;
     float alpha    = texSample.a;
