@@ -1,4 +1,4 @@
-// g++ main.cpp lecturaShader.cpp glad.c -o main -lglfw -lm -lGL -lGLU
+// g++ main.cpp aux.cpp glad.c -o main -ldl -lglfw -lm -lGL -lGLU
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,72 +13,42 @@
 #include <vector>
 
 #define TINYGLTF_IMPLEMENTATION
-#include "tiny_gltf.h"
+#include "./includes/tiny_gltf.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
+#include "./includes/stb_image_write.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+// Constantes
+const int terrainSize = 500; // Tamaño del terreno
 
-#include "estructuras.h"
+// Variables globales
+int scrWidth = 800;
+int scrHeight = 800;
 
-// Conversión de grados a radianes
-#define gradosToRadianes 3.14159/180.0
-
-// Estructura para definir un objeto con posición, transformación y renderizado
-typedef struct {
-    float posicion[3];      // Posición inicial
-    float anguloTrans;      // Ángulo de traslación
-    float velocidad;        // Velocidad de movimiento
-    float escalado[3];      // Escalado en cada eje
-    unsigned int vao;       // Identificador del VAO para renderizar
-    float color[3];         // Color del objeto
-    unsigned int vertices;  // Número de vértices
-    float anguloRot;        // Ángulo de rotación
-    int textura;            // Textura del objeto
-} objeto;
-
-// Objetos del escenario
-objeto suelo        = {{0.0, 0.0, 0.0}, 0.0, 0.0, {100.0, 0.0, 100.0}, 0, {0.541176f, 0.537254f, 0.392156f}, 6, 0, 0};
-objeto cubo         = {{0.0, 1.0, 0.0}, 0.0, 0.0, {1.0, 1.0, 1.0}, 0, {1.0f, 0.5f, 1.0f}, 36, 0, 0};
-objeto esfera       = {{0.0, 10.0, 0.0}, 0.0, 0.0, {1.0, 1.0, 1.0}, 0, {0.5f, 1.0f, 1.0f}, 1080, 0, 0};
-
-std::vector<GLuint> capyTextures;
-
-// Prototipos de funciones
-extern GLuint setShaders(const char *nVertx, const char *nFrag);
-void processInput(GLFWwindow *window);
-
-// Configuración de la ventana
-unsigned int scrWidth = 800;
-unsigned int scrHeight = 800;
-
-// Variables globales de shader y animación
-int noche = 0;
-GLuint shaderProgram;
-GLfloat anguloRuedas = 0.0f;
-GLfloat anguloBrazo = 0.0f;
-extern GLfloat verticesEsfera[];
-extern GLfloat verticesPlano[];
-extern GLfloat verticesCubo[];
+// Variables del terreno
+std::vector<float> terrainVertex;
+std::vector<unsigned int> terrainIndex;
+GLuint terrainVAO;
+GLuint terrainShader;
+GLuint terrainWaterTexture, terrainRockTexture, terrainHighTexture;
 
 // Variables de la cámara
-glm::vec3 cameraPos   = glm::vec3(-35.0f, 15.0f, 0.0f); // Posición inicial de la cámara
-glm::vec3 cameraTarget= glm::vec3(0.0f, 0.0f, 0.0f);    // Punto al que mira la cámara
+glm::vec3 cameraPos   = glm::vec3(50.0f, 10.0f, 50.0f); // Posición inicial de la cámara
 glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f, 0.0f);    // Vector "arriba" del mundo
-float cameraSpeed = 0.1f;                              // Velocidad de la cámara
-int modoCamara = 0;
-unsigned int vKeyPressed = 0;
+float cameraSpeed = 0.65f;                              // Velocidad de la cámara
+float cameraAngle = 0.0f;
 
-// Buffers globales (Vertex Array Objects)
-unsigned int vaoEsfera;
-unsigned int vaoPlano;
-unsigned int vaoCubo;
-
-// globals para el modelo
+// Variables de la capybara
 tinygltf::Model model;
 std::vector<GLuint> capyVBOs, capyVAOs;
+std::vector<GLuint> capyTextures;
+GLuint capybaraShader;
+
+// Declaración de funciones
+GLuint CreateShaderProgram(const char* vertexPath, const char* fragmentPath);
+int cargaTextura(const char* nombre);
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void loadCapybara(const char* path) {
     tinygltf::TinyGLTF loader;
@@ -163,16 +133,16 @@ void loadCapybara(const char* path) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+void drawCapybara() {
+    glUseProgram(capybaraShader);
 
-
-void drawCapybara(GLuint program) {
     static float ang = 0.0f;
     ang += 0.5f;
 
     // Movimiento oscilante en X
-    glm::mat4 modelMat = glm::translate(glm::mat4(1.0f),
-        glm::vec3(sin(ang * 3.14159f/180.0f) * 5.0f, 0.0f, 0.0f));
-    glUniformMatrix4fv(glGetUniformLocation(program, "model"),
+    glm::mat4 modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(75.0, 10.0, 50.0)); // Trasladar
+    modelMat = glm::scale(modelMat, glm::vec3(1.0f, 1.0f, 1.0f)); // Escala 10x
+    glUniformMatrix4fv(glGetUniformLocation(capybaraShader, "model"),
                        1, GL_FALSE, glm::value_ptr(modelMat));
 
     for (size_t m = 0; m < capyVAOs.size(); ++m) {
@@ -186,7 +156,7 @@ void drawCapybara(GLuint program) {
             if (bi >= 0 && bi < (int)capyTextures.size()) {
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, capyTextures[bi]);
-                glUniform1i(glGetUniformLocation(program, "texture1"), 0); // coincide con sampler2D 
+                glUniform1i(glGetUniformLocation(capybaraShader, "texture1"), 0); // coincide con sampler2D 
             }
         }
 
@@ -201,160 +171,157 @@ void drawCapybara(GLuint program) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-int cargaTextura(const char* nombre) {
-    GLuint textura;
+// Función para crear la malla de terreno
+void createTerrainMesh() {
+    terrainVertex.clear();
+    terrainIndex.clear();
 
-    glGenTextures(1, &textura);
-    glBindTexture(GL_TEXTURE_2D, textura);
-
-    // Configuración de parámetros de la textura
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-    // Carga la imagen
-    int width, height, nrChannels;
-    unsigned char *data = stbi_load(nombre, &width, &height, &nrChannels, 0);
-    if (data) {
-        // Determina el formato de la imagen (por ejemplo, GL_RGB o GL_RGBA)
-        GLenum format = (nrChannels == 4) ? GL_RGBA : GL_RGB;
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    } else {
-        std::cout << "Error al cargar la textura" << std::endl;
+    terrainVertex.reserve(terrainSize * terrainSize * 3); // 3 componentes (x,y,z) por vértice
+    for(int z = 0; z < terrainSize; ++z) {
+        for(int x = 0; x < terrainSize; ++x) {
+            // Posición (x, y, z). Inicialmente y = 0.
+            terrainVertex.push_back((float)x);
+            terrainVertex.push_back(0.0f);
+            terrainVertex.push_back((float)z);
+        }
     }
-    stbi_image_free(data);
 
-    return textura;
-}
+    // Ahora creamos índices para triángulos (dos por cada cuadrado)
+    for(int z = 0; z < terrainSize - 1; ++z) {
+        for(int x = 0; x < terrainSize - 1; ++x) {
+            int topLeft     =  z      * terrainSize + x;
+            int topRight    =  topLeft + 1;
+            int bottomLeft  = (z + 1)* terrainSize + x;
+            int bottomRight = bottomLeft + 1;
+            // Triángulo superior izquierdo
+            terrainIndex.push_back(topLeft);
+            terrainIndex.push_back(bottomLeft);
+            terrainIndex.push_back(topRight);
+            // Triángulo inferior derecho
+            terrainIndex.push_back(topRight);
+            terrainIndex.push_back(bottomLeft);
+            terrainIndex.push_back(bottomRight);
+        }
+    }
 
-void configurar(unsigned int *vao, float *vertices, int size) {
-    unsigned int vbo;
-    glGenVertexArrays(1, vao);
+    // Crear buffers VAO, VBO y EBO
+    GLuint vbo, ebo;
+    glGenVertexArrays(1, &terrainVAO);
+    glBindVertexArray(terrainVAO);
+
+    // Vertex Buffer
     glGenBuffers(1, &vbo);
-
-    glBindVertexArray(*vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER,
+                terrainVertex.size() * sizeof(float),
+                terrainVertex.data(),
+                GL_STATIC_DRAW);
 
-    // Atributo para las normales
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1);
-    
-    // Atributo para las coordenadas de textura
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)(3*sizeof(float)));
-    glEnableVertexAttribArray(2);
-    
-    // Atributo para los vértices
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)(5*sizeof(float)));
+    // Element Buffer
+    glGenBuffers(1, &ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                terrainIndex.size() * sizeof(unsigned int),
+                terrainIndex.data(),
+                GL_STATIC_DRAW);
+
+    // Atributo de posición (layout = 0 en shader)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // Desenlazamos por ahora (opcional)
     glBindVertexArray(0);
-    glDeleteBuffers(1, &vbo);
+
+    // Cargamos la textura
+    terrainWaterTexture = cargaTextura("./textures/agua.png");
+    terrainRockTexture = cargaTextura("./textures/roca.png");
+    terrainHighTexture = cargaTextura("./textures/rocaAlta.png");
+
 }
 
-void dibujarObjeto(objeto &obj) {
-    glm::mat4 transform = glm::mat4(1.0f);    
+// Función para pintar el terreno
+void pintarTerreno() {
+    glUseProgram(terrainShader);
 
-    transform = glm::translate(transform, glm::vec3(obj.posicion[0], obj.posicion[1], obj.posicion[2])); // Trasladar
-    transform = glm::rotate(transform, (float)(obj.anguloTrans * gradosToRadianes), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotar
-    transform = glm::scale(transform, glm::vec3(obj.escalado[0], obj.escalado[1], obj.escalado[2])); // Escalar
+    // Enviamos las texturas al shader
+    glUniform1i(glGetUniformLocation(terrainShader, "textureWater"), 0); // Unidad de textura 0
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, terrainWaterTexture);
+    glUniform1i(glGetUniformLocation(terrainShader, "textureRock"), 1); // Unidad de textura 1
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, terrainRockTexture);
+    glUniform1i(glGetUniformLocation(terrainShader, "textureHigh"), 2); // Unidad de textura 2
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, terrainHighTexture);
 
-    // Enviar la matriz 'transform' al shader
-    unsigned int transformLoc = glGetUniformLocation(shaderProgram, "transform");
-    glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+    // Bindeamos el VAO y dibujamos
+    glBindVertexArray(terrainVAO);
+    glDrawElements(GL_TRIANGLES, (GLsizei)terrainIndex.size(), GL_UNSIGNED_INT, 0);
 
-    // Enviar la matriz 'model' al shader
-    unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(transform));
-
-    // Enviar el color al shader
-    unsigned int colorLoc = glGetUniformLocation(shaderProgram, "color");
-    glUniform3fv(colorLoc, 1, glm::value_ptr(glm::vec3(obj.color[0], obj.color[1], obj.color[2])));
-
-    if (obj.textura != 0) {
-        glActiveTexture(GL_TEXTURE0);  // Unidad 0
-        glBindTexture(GL_TEXTURE_2D, obj.textura);
-        glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0);
-    }
-
-    glBindVertexArray(obj.vao);
-    glDrawArrays(GL_TRIANGLES, 0, obj.vertices);
+    // Desenlazamos
     glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0); // Desvincular la textura
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 // Configura la cámara y la proyección
 void camara() {
+    glUseProgram(terrainShader);
+
     glm::mat4 projection = glm::perspective(glm::radians(65.0f),
                                 float(scrWidth) / float(scrHeight), 0.1f, 200.0f);
-    unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    unsigned int projectionLoc = glGetUniformLocation(terrainShader, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-    glm::mat4 view;
-    view = glm::lookAt(cameraPos, cameraTarget, cameraUp);
-
-    unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
+    glm::vec3 eye = cameraPos;
+    glm::vec3 center = cameraPos + glm::vec3(cos(glm::radians(cameraAngle)), 0.0f, -sin(glm::radians(cameraAngle)));
+    glm::mat4 view = glm::lookAt(eye, center, cameraUp);
+    
+    unsigned int viewLoc = glGetUniformLocation(terrainShader, "view");
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+    // Enviar las matrices al shader de la capybara
+    glUseProgram(capybaraShader);
+
+    unsigned int projectionLocCapy = glGetUniformLocation(capybaraShader, "projection");
+    glUniformMatrix4fv(projectionLocCapy, 1, GL_FALSE, glm::value_ptr(projection));
+
+    unsigned int viewLocCapy = glGetUniformLocation(capybaraShader, "view");
+    glUniformMatrix4fv(viewLocCapy, 1, GL_FALSE, glm::value_ptr(view));
 }
 
 // Procesa las entradas del teclado
 void processInput(GLFWwindow *window) {
-
     // Cierra la ventana al presionar ESC
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
     }
 
-    glm::vec3 camDirection = glm::normalize(cameraTarget - cameraPos);
+    // Movimiento de la cámara
+    glm::vec3 camDirection = glm::vec3(cos(glm::radians(cameraAngle)), 0.0f, -sin(glm::radians(cameraAngle)));
     glm::vec3 camRight = glm::normalize(glm::cross(camDirection, cameraUp));
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-        cameraPos += cameraSpeed * camDirection;
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * camDirection;
-    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-        cameraPos -= camRight * cameraSpeed;
-    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-        cameraPos += camRight * cameraSpeed;
-    
+
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+        cameraPos += cameraSpeed * camDirection; // Mover hacia adelante
+    }
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+        cameraPos -= cameraSpeed * camDirection; // Mover hacia atrás
+    }
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+        cameraAngle += 0.65f; // Girar a la izquierda
+    }
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+        cameraAngle -= 0.65f; // Girar a la derecha
+    }
+
     // Movimiento vertical de la cámara
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        cameraPos += cameraSpeed * cameraUp;
+        cameraPos += cameraSpeed * cameraUp; // Subir
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * cameraUp;
+        cameraPos -= cameraSpeed * cameraUp; // Bajar
+    
 }
 
-// Configuración inicial de OpenGL
-void openGlInit() {
-    glClearDepth(1.0f);
-    glClearColor(0.4f, 0.6f, 0.6f, 1.0f);
-    glEnable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-}
-
-// Inicializa los objetos y configura sus VAO correspondientes
-void initObjects() {
-    configurar(&vaoPlano, verticesPlano, sizeof(verticesPlano));
-    configurar(&vaoCubo, verticesCubo, sizeof(verticesCubo));
-    configurar(&vaoEsfera, verticesEsfera, sizeof(verticesEsfera));
-
-    suelo.vao = vaoPlano;
-    cubo.vao = vaoCubo;
-    esfera.vao = vaoEsfera;
-}
-
-void iluminacion() {    
-    glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
-    unsigned int lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
-    glUniform3fv(lightColorLoc, 1, glm::value_ptr(lightColor));
-}
-
+// Callback de redimensionado
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     // Ajusta el viewport a las nuevas dimensiones de la ventana
     glViewport(0, 0, width, height);
@@ -366,6 +333,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     scrWidth = width;
     scrHeight = height;
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char** argv) {
     // Inicialización de GLFW y configuración de la versión de OpenGL
@@ -384,6 +353,7 @@ int main(int argc, char** argv) {
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
     
+    // Inicialización de GLAD
     if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
         std::cout << "Error al inicializar GLAD" << std::endl;
         return -1;
@@ -392,37 +362,46 @@ int main(int argc, char** argv) {
     // Configura el callback para el redimensionamiento
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     
-    shaderProgram = setShaders("shader.vert", "shader.frag");
-    glUseProgram(shaderProgram);
-    if (shaderProgram == 0) {
+    // Creación de la malla de terreno
+    createTerrainMesh();
+
+    // Carga del modelo de la capybara
+    loadCapybara("./models/capybara_low_poly.glb");
+
+    // Configuración de los shaders
+    terrainShader = CreateShaderProgram("terrain.vert", "terrain.frag");
+    capybaraShader = CreateShaderProgram("capybara.vert", "capybara.frag");
+    if (capybaraShader == 0 || terrainShader == 0) {
         std::cout << "Error al cargar los shaders" << std::endl;
         return -1;
     }
-    
-    openGlInit();
-    initObjects();
 
-    loadCapybara("capybara_low_poly.glb"); // Carga el modelo de la capibara
-    
+    // Configuración de OpenGL
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
+    glEnable(GL_BLEND);
+
     // Bucle principal de renderizado
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
+
+        // Configuración de la cámara
         camara();
-        iluminacion();
+
+        // Pintar el terreno
+        pintarTerreno();  
         
-        // Dibujar los distintos elementos
-        dibujarObjeto(suelo);
-        dibujarObjeto(cubo);
-        dibujarObjeto(esfera);
-        drawCapybara(shaderProgram);
+        // Pintar la capybara
+        drawCapybara();
         
+        // Intercambiar buffers y procesar eventos
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
     
-    glDeleteProgram(shaderProgram); // Limpieza del shader    
+    glDeleteProgram(terrainShader);
+    glDeleteProgram(capybaraShader);
+
     return 0;
 }
-
