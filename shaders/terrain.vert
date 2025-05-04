@@ -6,6 +6,8 @@ uniform mat4 projection;
 uniform mat4 view;
 
 out vec2 TexCoords;
+out vec3 FragPos;
+out vec3 Normal; 
 out float n;
 
 // -------- Funciones de ruido (igual que en fragment shader) --------
@@ -29,11 +31,25 @@ float noise(vec2 pos) {
 
 void main() {
     float escala = 0.1;
-    float altura = noise(aPos.xz * escala) * 5.0;
-    n = altura/5;
+    float maxAltura = 10.0;
+    float altura = noise(aPos.xz * escala) * maxAltura;
+    n = altura / maxAltura;
 
-    vec3 displacedPos = vec3(aPos.x, altura, aPos.z); // Elevamos Y
+    // Calcular desplazamiento
+    vec3 displacedPos = vec3(aPos.x, altura, aPos.z);
+
+    // Calcular normales usando derivadas centrales
+    float delta = 0.1; // Pequeño desplazamiento para calcular derivadas
+    float alturaL = noise((aPos.xz + vec2(-delta, 0.0)) * escala) * maxAltura;
+    float alturaR = noise((aPos.xz + vec2(delta, 0.0)) * escala) * maxAltura;
+    float alturaD = noise((aPos.xz + vec2(0.0, -delta)) * escala) * maxAltura;
+    float alturaU = noise((aPos.xz + vec2(0.0, delta)) * escala) * maxAltura;
+
+    vec3 tangent = vec3(2.0 * delta, alturaR - alturaL, 0.0);
+    vec3 bitangent = vec3(0.0, alturaU - alturaD, 2.0 * delta);
+    Normal = normalize(cross(tangent, bitangent)); // Normalizar la normal
+
     gl_Position = projection * view * vec4(displacedPos, 1.0);
-    
+    FragPos = displacedPos;
     TexCoords = aPos.xz; // Sigue enviando las coords para color
 }

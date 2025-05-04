@@ -1,6 +1,8 @@
 #version 330 core
 
 in vec2 TexCoords;    // Coordenadas de textura (o posición xz)
+in vec3 FragPos;
+in vec3 Normal;
 in float n;          // Altura
 
 out vec4 FragColor;
@@ -9,6 +11,11 @@ out vec4 FragColor;
 uniform sampler2D textureWater;
 uniform sampler2D textureRock;
 uniform sampler2D textureHigh;
+
+uniform vec3 lightColor;
+uniform vec3 lightPos;
+uniform vec3 luzDir;
+uniform vec3 viewPos;
 
 void main() {
     // Definir los colores para el gradiente
@@ -41,5 +48,32 @@ void main() {
         alpha = Texture.a;
     }
 
-    FragColor = vec4(mixColor, alpha);
+    // Calcular luces
+    vec3 ambient = 0.5 * lightColor;
+
+    if(acos(dot(normalize(FragPos - lightPos), luzDir)) < radians(25.0)) {
+        // Atenuación 
+        float distance = length(lightPos - FragPos);
+        float attenuation = 10.0 / (1 + 0.075 * distance + 0.03 * distance * distance);
+
+        // Difusa
+        vec3 norm = normalize(Normal);
+        vec3 lightDir = normalize(lightPos - FragPos);
+        float diff = max(dot(norm, lightDir), 0.0);
+        vec3 diffuse = diff * lightColor;
+
+        // Especular
+        float specularStrength = 1.0f;
+        vec3 viewDir    = normalize(viewPos - FragPos);
+        vec3 reflectDir = reflect(-lightDir, norm);
+        float spec      = pow(max(dot(viewDir, reflectDir), 0.0), 128);
+        vec3 specular   = specularStrength * spec * lightColor;
+
+        vec3 result = (ambient + diffuse * attenuation + specular * attenuation)
+                      * mixColor * (1 + attenuation);
+        FragColor = vec4(result, alpha);        
+    } else {
+        vec3 result = ambient * mixColor;
+        FragColor = vec4(result, alpha);
+    }
 }

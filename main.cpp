@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <vector>
@@ -22,7 +23,7 @@
 #include "./includes/stb_image_write.h"
 
 // Constantes
-const int terrainSize = 500; // Tamaño del terreno
+const int terrainSize = 500; // El terreno será (0, y, 0) a (terrainSize, y, terrainSize)
 
 // Variables globales
 int scrWidth = 800;
@@ -351,6 +352,25 @@ void camara() {
     glUniformMatrix4fv(viewLocCapy, 1, GL_FALSE, glm::value_ptr(view));
 }
 
+void iluminacion() {
+    glUseProgram(terrainShader);
+
+    // Luz ambiente
+    unsigned int lightLoc = glGetUniformLocation(terrainShader, "lightColor");
+    glUniform3f(lightLoc, 0.5f, 0.5f, 0.5f);
+
+    // Posición de la luz
+    unsigned int lightPosLoc = glGetUniformLocation(terrainShader, "lightPos");
+    glUniform3f(lightPosLoc, cameraPos.x, 0.0, cameraPos.z);
+
+    unsigned int lightDirLoc = glGetUniformLocation(terrainShader, "luzDir");
+    glUniform3f(lightDirLoc, cos(glm::radians(cameraAngle)), 0, -sin(glm::radians(cameraAngle)));
+
+    // Luz especular
+    unsigned int viewPosLoc = glGetUniformLocation(terrainShader, "viewPos");
+    glUniform3f(viewPosLoc, cameraPos.x, cameraPos.y, cameraPos.z);
+}
+
 // Procesa las entradas del teclado
 void processInput(GLFWwindow *window) {
     // Cierra la ventana al presionar ESC
@@ -362,25 +382,18 @@ void processInput(GLFWwindow *window) {
     glm::vec3 camDirection = glm::vec3(cos(glm::radians(cameraAngle)), 0.0f, -sin(glm::radians(cameraAngle)));
     glm::vec3 camRight = glm::normalize(glm::cross(camDirection, cameraUp));
 
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-        cameraPos += cameraSpeed * camDirection; // Mover hacia adelante
-    }
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-        cameraPos -= cameraSpeed * camDirection; // Mover hacia atrás
-    }
-    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
-        cameraAngle += 0.65f; // Girar a la izquierda
-    }
-    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-        cameraAngle -= 0.65f; // Girar a la derecha
-    }
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) cameraPos += cameraSpeed * camDirection; // Mover hacia adelante
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) cameraPos -= cameraSpeed * camDirection; // Mover hacia atrás
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) cameraAngle += 0.65f; // Girar a la izquierda
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) cameraAngle -= 0.65f; // Girar a la derecha
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) cameraPos += cameraSpeed * cameraUp; // Subir
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) cameraPos -= cameraSpeed * cameraUp; // Bajar
 
-    // Movimiento vertical de la cámara
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        cameraPos += cameraSpeed * cameraUp; // Subir
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * cameraUp; // Bajar
-    
+    // Comprobar límites de la cámara
+    if (cameraPos.x < 10.0f) cameraPos.x = 10.0f;
+    if (cameraPos.x > terrainSize - 10.0f) cameraPos.x = terrainSize - 10.0f;
+    if (cameraPos.z < 10.0f) cameraPos.z = 10.0f;
+    if (cameraPos.z > terrainSize - 10.0f) cameraPos.z = terrainSize - 10.0f;
 }
 
 // Callback de redimensionado
@@ -431,8 +444,8 @@ int main(int argc, char** argv) {
     loadCapybara("./models/capybara_low_poly.glb");
 
     // Configuración de los shaders
-    terrainShader = CreateShaderProgram("terrain.vert", "terrain.frag");
-    capybaraShader = CreateShaderProgram("capybara.vert", "capybara.frag");
+    terrainShader = CreateShaderProgram("./shaders/terrain.vert", "./shaders/terrain.frag");
+    capybaraShader = CreateShaderProgram("./shaders/capybara.vert", "./shaders/capybara.frag");
     if (capybaraShader == 0 || terrainShader == 0) {
         std::cout << "Error al cargar los shaders" << std::endl;
         return -1;
@@ -468,6 +481,9 @@ int main(int argc, char** argv) {
 
         // Configuración de la cámara
         camara();
+
+        // Configuración de las luces
+        iluminacion();
 
         // Pintar el terreno
         pintarTerreno();  
