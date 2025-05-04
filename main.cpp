@@ -369,8 +369,8 @@ int main(int argc, char** argv) {
     loadCapybara("./models/capybara_low_poly.glb");
 
     // Configuración de los shaders
-    terrainShader = CreateShaderProgram("terrain.vert", "terrain.frag");
-    capybaraShader = CreateShaderProgram("capybara.vert", "capybara.frag");
+    terrainShader = CreateShaderProgram("./shaders/terrain.vert", "./shaders/terrain.frag");
+    capybaraShader = CreateShaderProgram("./shaders/capybara.vert", "./shaders/capybara.frag");
     if (capybaraShader == 0 || terrainShader == 0) {
         std::cout << "Error al cargar los shaders" << std::endl;
         return -1;
