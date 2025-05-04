@@ -10,7 +10,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
 #include <vector>
+#include <random>
 
 #define TINYGLTF_IMPLEMENTATION
 #include "./includes/tiny_gltf.h"
@@ -43,10 +46,21 @@ tinygltf::Model model;
 std::vector<GLuint> capyVBOs, capyVAOs;
 std::vector<GLuint> capyTextures;
 GLuint capybaraShader;
+glm::vec3 capySphereCenter;
+float capySphereRadius;
+glm::vec3 capyPositionWorld(75.0f, 10.0f, 50.0f);
+
+// Declaración de núms aleatorios
+std::mt19937        rng{ std::random_device{}() };
+std::uniform_real_distribution<float> distXZ(0.0f, 100.0f);
 
 // Declaración de funciones
 GLuint CreateShaderProgram(const char* vertexPath, const char* fragmentPath);
 int cargaTextura(const char* nombre);
+bool checkCapybaraCollision(const glm::vec3 &cameraPos, 
+                            const glm::vec3 &sphereCenter, 
+                            float sphereRadius,
+                            const glm::mat4 &modelTransform);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -131,6 +145,34 @@ void loadCapybara(const char* path) {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
+
+
+    // Cálculo de la bounding sphere para el capybara
+    std::vector<glm::vec3> positions;
+    for (auto &mesh : model.meshes) {
+        auto &prim   = mesh.primitives[0];
+        auto &posAcc = model.accessors[ prim.attributes.at("POSITION") ];
+        auto &bv     = model.bufferViews[ posAcc.bufferView ];
+        auto &buf    = model.buffers[bv.buffer];
+        const float* data = reinterpret_cast<const float*>(
+                               buf.data.data() + bv.byteOffset + posAcc.byteOffset);
+        for (size_t i = 0; i < posAcc.count; ++i) {
+            positions.emplace_back(data[3*i], data[3*i+1], data[3*i+2]);
+        }
+    }
+    glm::vec3 center{0.0f};
+    for (auto &p : positions) center += p;
+    center /= float(positions.size());
+    float radius = 0.0f;
+    for (auto &p : positions) {
+        radius = std::max(radius, glm::length(p - center));
+    }
+    capySphereCenter = center;
+    capySphereRadius = radius;
+    std::cout << "Capybara bounding sphere: center=" 
+              << glm::to_string(center) 
+              << ", radius=" << radius << std::endl;
+
 }
 
 void drawCapybara() {
@@ -140,7 +182,7 @@ void drawCapybara() {
     ang += 0.5f;
 
     // Movimiento oscilante en X
-    glm::mat4 modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(75.0, 10.0, 50.0)); // Trasladar
+    glm::mat4 modelMat = glm::translate(glm::mat4(1.0f), capyPositionWorld); // Trasladar
     modelMat = glm::scale(modelMat, glm::vec3(1.0f, 1.0f, 1.0f)); // Escala 10x
     glUniformMatrix4fv(glGetUniformLocation(capybaraShader, "model"),
                        1, GL_FALSE, glm::value_ptr(modelMat));
@@ -169,6 +211,26 @@ void drawCapybara() {
 
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+bool checkCapybaraCollision(const glm::vec3 &cameraPos, 
+                            const glm::vec3 &sphereCenter, 
+                            float sphereRadius,
+                            const glm::mat4 &modelTransform)
+{
+    // Transformar el centro de la esfera de espacio‑modelo a espacio‑mundo
+    glm::vec3 worldCenter = glm::vec3(modelTransform * glm::vec4(sphereCenter, 1.0f));
+    float    worldRadius = sphereRadius;  // si tu escala es uniforme 1.0
+
+    // Distancia cámara ↔ centro de la capybara
+    float dist = glm::length(cameraPos - worldCenter);
+
+    return (dist <= worldRadius);
+}
+
+void respawnCapybara(glm::vec3 &position) {
+    position.x = distXZ(rng);
+    position.z = distXZ(rng);
 }
 
 // Función para crear la malla de terreno
@@ -385,6 +447,24 @@ int main(int argc, char** argv) {
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        glm::mat4 capyModelMat = 
+            glm::translate(glm::mat4(1.0f), capyPositionWorld)
+          * glm::scale    (glm::mat4(1.0f), glm::vec3(1.0f));
+
+        if ( checkCapybaraCollision(cameraPos, capySphereCenter, capySphereRadius, capyModelMat) ) {
+            std::cout << "¡Colisión con la capybara!\n";
+            respawnCapybara(capyPositionWorld);
+            // …aquí tu respuesta a la colisión…
+        }
+
+        // Prepara la matriz de modelo que usas también en drawCapybara()
+        capyModelMat = 
+            glm::translate(glm::mat4(1.0f), capyPositionWorld)
+          * glm::scale    (glm::mat4(1.0f), glm::vec3(1.0f));
+
+
+        glUniformMatrix4fv(glGetUniformLocation(capybaraShader,"model"),1,GL_FALSE,glm::value_ptr(capyModelMat));
 
         // Configuración de la cámara
         camara();
