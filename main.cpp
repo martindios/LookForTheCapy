@@ -49,11 +49,11 @@ std::vector<GLuint> capyTextures;
 GLuint capybaraShader;
 glm::vec3 capySphereCenter;
 float capySphereRadius;
-glm::vec3 capyPositionWorld(75.0f, 10.0f, 50.0f);
+glm::vec3 capyPositionWorld(75.0f, 7.5f, 50.0f);
 
 // Declaración de núms aleatorios
 std::mt19937        rng{ std::random_device{}() };
-std::uniform_real_distribution<float> distXZ(0.0f, 100.0f);
+std::uniform_real_distribution<float> distXZ(0.0f, terrainSize - 15.0f);
 
 // Declaración de funciones
 GLuint CreateShaderProgram(const char* vertexPath, const char* fragmentPath);
@@ -331,7 +331,7 @@ void camara() {
     glUseProgram(terrainShader);
 
     glm::mat4 projection = glm::perspective(glm::radians(65.0f),
-                                float(scrWidth) / float(scrHeight), 0.1f, 200.0f);
+                                float(scrWidth) / float(scrHeight), 0.1f, 150.0f);
     unsigned int projectionLoc = glGetUniformLocation(terrainShader, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
@@ -453,7 +453,7 @@ int main(int argc, char** argv) {
 
     // Configuración de OpenGL
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
+    glClearColor(0.0f, 0.1f, 0.3f, 0.8f);
     glEnable(GL_BLEND);
 
     // Bucle principal de renderizado
