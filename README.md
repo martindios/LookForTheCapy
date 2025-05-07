@@ -6,7 +6,7 @@ Look for the Capy es un juego desarrollado en C++ que utiliza OpenGL 3.3 para cr
 El objetivo del juego es encontrar una capibara a lo largo del terreno todas las veces que sea posible. Ten en cuenta que si tardas demasiado en encontrarla,
 perderás el juego.
 
-![imaxe](https://github.com/user-attachments/assets/17bb2e22-c07a-4474-8e9f-677e9788cac1)
+![gif](gif.gif)
 
 
 ## Características
