@@ -31,8 +31,9 @@ programa cuenta con un temporizador para terminar la partida en caso de que no s
 - Sistema operativo: Linux
 - Compilador: GCC
 - Bibliotecas necesarias:
-  - GLFW
-  - GLM 
+  - [GLFW](https://www.glfw.org/)
+  - [GLM](https://github.com/g-truc/glm) 
+  - [glad](https://glad.dav1d.de/) 
 
 ## Instalación
 
@@ -62,4 +63,12 @@ Para jugar a Look for the Capy, sigue estos pasos:
 
 ¡Diviértete explorando y buscando la capibara!
 
+## Créditos del modelo 3D
 
+- **Modelo:** “Capybara Low-Poly”  
+- **Autor:** Nyilonelycompany  
+- **Fuente:** [Sketchfab – Capybara Low-Poly](https://sketchfab.com/3d-models/capybara-low-poly-2b9e0100da7245079fa3d54eedd81030)  
+- **Licencia:** CC Attribution‑NonCommercial (Creative Commons Attribution‐NonCommercial)  
+
+## Nuestra licencia
+Compartimos este proyecto bajo una licencia MIT. Puedes consultar más información sobre la licencia en la sección LICENSE del repositorio.
