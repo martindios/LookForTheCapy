@@ -24,7 +24,7 @@ poco más realista.
 En cuanto a la cámara, ajustamos las matrices de transformación según la entrada del usuario por teclado, usando esta posición también para la implementación
 de las luces.
 Finalmente, implementamos colisiones entre la cámara y la capibara para poder aumentar los puntos del jugador y reubicar la capybara dentro del terreno. El propio
-programa cuenta con un temporizador para terminar la partida en caso de que no se produzca ninguna colisión en un intervalo de 15 segundos.
+programa cuenta con un temporizador para terminar la partida en caso de que no se produzca ninguna colisión en un intervalo de 30 segundos.
 
 ## Requisitos
 
@@ -58,7 +58,7 @@ Para jugar a Look for the Capy, sigue estos pasos:
    Muévete con las flechas del teclado, la cámara y la luz se moverán contigo.
 
 4. **Objetivo**: Explora el terreno generado proceduralmente y busca la capibara. Una vez que la encuentres, atraviésala para anotar un punto. En ese momento,
-5. reaparecerá en otro sitio para volver a buscarla. Hazlo rápido, si tardas más de 15 segundos, perderás el juego.
+5. reaparecerá en otro sitio para volver a buscarla. Hazlo rápido, si tardas más de 30 segundos, perderás el juego.
 
 ¡Diviértete explorando y buscando la capibara!
 

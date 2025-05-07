@@ -54,7 +54,7 @@ void main() {
     if(acos(dot(normalize(FragPos - lightPos), luzDir)) < radians(25.0)) {
         // Atenuación 
         float distance = length(lightPos - FragPos);
-        float attenuation = 10.0 / (1 + 0.075 * distance + 0.03 * distance * distance);
+        float attenuation = 20.0 / (1 + 0.075 * distance + 0.03 * distance * distance);
 
         // Difusa
         vec3 norm = normalize(Normal);

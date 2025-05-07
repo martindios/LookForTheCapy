@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <unistd.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -171,10 +172,7 @@ void loadCapybara(const char* path) {
         radius = std::max(radius, glm::length(p - center));
     }
     capySphereCenter = center;
-    capySphereRadius = radius;
-    std::cout << "Capybara bounding sphere: center=" 
-              << glm::to_string(center) 
-              << ", radius=" << radius << std::endl;
+    capySphereRadius = radius + 2.0f;
 
 }
 
@@ -340,7 +338,7 @@ void temporizador(int reiniciar) {
 
     if(reiniciar) {
         tiempoAcumulado = 0.0f;
-    } else if (tiempoAcumulado >= 15.0f) { // 15 segundos
+    } else if (tiempoAcumulado >= 30.0f) {
         final = 1;
     }
 }
@@ -376,7 +374,7 @@ void iluminacion() {
 
     // Luz ambiente
     unsigned int lightLoc = glGetUniformLocation(terrainShader, "lightColor");
-    glUniform3f(lightLoc, 0.5f, 0.5f, 0.5f);
+    glUniform3f(lightLoc, 0.7f, 0.7f, 0.7f);
 
     // Posición de la luz
     unsigned int lightPosLoc = glGetUniformLocation(terrainShader, "lightPos");
@@ -485,7 +483,6 @@ int main(int argc, char** argv) {
           * glm::scale    (glm::mat4(1.0f), glm::vec3(1.0f));
 
         if ( checkCapybaraCollision(cameraPos, capySphereCenter, capySphereRadius, capyModelMat) ) {
-            std::cout << "¡Colisión con la capybara!\n";
             respawnCapybara(capyPositionWorld);
             temporizador(1);
             counter++;
@@ -523,6 +520,7 @@ int main(int argc, char** argv) {
     glDeleteProgram(terrainShader);
     glDeleteProgram(capybaraShader);
 
+    sleep(1);
     printf("Fin del juego\n");
     printf("Has encontrado %d capybaras\n", counter);
 
