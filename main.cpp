@@ -28,6 +28,8 @@ const int terrainSize = 500; // El terreno será (0, y, 0) a (terrainSize, y, te
 // Variables globales
 int scrWidth = 800;
 int scrHeight = 800;
+int counter = 0;
+int final = 0;
 
 // Variables del terreno
 std::vector<float> terrainVertex;
@@ -326,6 +328,23 @@ void pintarTerreno() {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+void temporizador(int reiniciar) {
+    static float tiempoAcumulado = 0.0f;
+    static double tiempoAnterior = glfwGetTime();
+
+    double tiempoActual = glfwGetTime();
+    double deltaTiempo = tiempoActual - tiempoAnterior;
+    tiempoAnterior = tiempoActual;
+
+    tiempoAcumulado += deltaTiempo;
+
+    if(reiniciar) {
+        tiempoAcumulado = 0.0f;
+    } else if (tiempoAcumulado >= 15.0f) { // 15 segundos
+        final = 1;
+    }
+}
+
 // Configura la cámara y la proyección
 void camara() {
     glUseProgram(terrainShader);
@@ -419,7 +438,7 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
     // Creación de la ventana
-    GLFWwindow* window = glfwCreateWindow(scrWidth, scrHeight, "Capybara", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(scrWidth, scrHeight, "Look for the Capy", NULL, NULL);
     if(window == NULL){
         std::cout << "Error al crear la ventana" << std::endl;
         glfwTerminate();
@@ -457,7 +476,7 @@ int main(int argc, char** argv) {
     glEnable(GL_BLEND);
 
     // Bucle principal de renderizado
-    while (!glfwWindowShouldClose(window)) {
+    while (!glfwWindowShouldClose(window) && !final) {
         processInput(window);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -468,6 +487,8 @@ int main(int argc, char** argv) {
         if ( checkCapybaraCollision(cameraPos, capySphereCenter, capySphereRadius, capyModelMat) ) {
             std::cout << "¡Colisión con la capybara!\n";
             respawnCapybara(capyPositionWorld);
+            temporizador(1);
+            counter++;
             // …aquí tu respuesta a la colisión…
         }
 
@@ -490,6 +511,9 @@ int main(int argc, char** argv) {
         
         // Pintar la capybara
         drawCapybara();
+
+        // Comrpobar el temporizador
+        temporizador(0);
         
         // Intercambiar buffers y procesar eventos
         glfwSwapBuffers(window);
@@ -498,6 +522,9 @@ int main(int argc, char** argv) {
     
     glDeleteProgram(terrainShader);
     glDeleteProgram(capybaraShader);
+
+    printf("Fin del juego\n");
+    printf("Has encontrado %d capybaras\n", counter);
 
     return 0;
 }
